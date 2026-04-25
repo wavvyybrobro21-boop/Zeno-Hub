@@ -1,5 +1,5 @@
 -- ============================================
--- Zeno Hub v2.0 - Improved Script
+-- Wave - Improved Script
 -- ============================================
 -- Rayfield UI Library for modern look
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -134,12 +134,12 @@ end
 -- Window Creation
 -- ============================================
 local Window = Rayfield:CreateWindow({
-    Name = "⚡ Zeno Hub v2.0 ⚡",
+    Name = " 🌊Wave🌊 ",
     LoadingTitle = "Loading Assets...",
-    LoadingSubtitle = "by wavvyybrobro21",
+    LoadingSubtitle = "by Wavvyy",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "ZenoHub",
+        FolderName = "Wave",
         FileName = "MainConfig"
     },
     KeySystem = false,
@@ -340,4 +340,4 @@ AboutTab:CreateButton({
 -- Initialization
 -- ============================================
 Rayfield:LoadConfiguration()
-Utilities:Notify("Welcome", "Zeno Hub v2.0 loaded! Enjoy! 🚀", 3)
+Utilities:Notify("Welcome", "Wave loaded! Enjoy! 🚀", 3)
