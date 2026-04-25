@@ -1,82 +1,343 @@
+-- ============================================
+-- Zeno Hub v2.0 - Improved Script
+-- ============================================
 -- Rayfield UI Library for modern look
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- Window Creation
-local Window = Rayfield:CreateWindow({
-Name = "⚡ Supreme Core Hub v1.0 ⚡",
-LoadingTitle = "Loading Assets...",
-LoadingSubtitle = "by YourName",
-ConfigurationSaving = {
-Enabled = true,
-FolderName = "SupremeHub",
-FileName = "MainConfig"
-},
-KeySystem = false, -- Set to true for key system
-})
+-- ============================================
+-- Configuration & Constants
+-- ============================================
+local Config = {
+    DefaultWalkSpeed = 16,
+    MaxWalkSpeed = 300,
+    DefaultFOV = 70,
+    MaxFOV = 120,
+    NotificationDuration = 3,
+}
 
--- Tab 1: Player Functions
-local PlayerTab = Window:CreateTab("Player", "user")
-local Section1 = PlayerTab:CreateSection("Movement & Speed")
+-- ============================================
+-- Helper Functions
+-- ============================================
+local Utilities = {}
 
-local SpeedSlider = PlayerTab:CreateSlider({
-Name = "WalkSpeed",
-Range = {16, 300},
-Increment = 1,
-Suffix = "Studs",
-CurrentValue = 16,
-Flag = "WalkSpeed",
-Callback = function(Value)
-game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
-end,
-})
-
-local ToggleFly = PlayerTab:CreateToggle({
-Name = "Fly Mode",
-CurrentValue = false,
-Flag = "Fly",
-Callback = function(Value)
-print("Fly Mode: " .. tostring(Value))
--- Add Fly Logic Here
-end,
-})
-
--- Tab 2: Game Tools
-local GameTab = Window:CreateTab("Game Tools", "gamepad")
-local Section2 = GameTab:CreateSection("Exploits")
-
-local Button1 = GameTab:CreateButton({
-Name = "Kill All Players",
-Callback = function()
--- Add Kill All Logic
-Rayfield:Notify({Title = "Exploit", Content = "Kill All Triggered", Duration = 3})
-end,
-})
-
-local Dropdown = GameTab:CreateDropdown({
-Name = "Teleport Locations",
-Options = {"Spawn", "Secret Room", "Boss Area"},
-CurrentOption = "Spawn",
-Flag = "Teleport",
-Callback = function(Option)
-print("Teleporting to: " .. Option)
--- Add Teleport Logic
-end,
-})
-
--- Tab 3: Misc/Fun
-local MiscTab = Window:CreateTab("Misc", "settings")
-
-local ToggleFOV = MiscTab:CreateToggle({
-Name = "FOV Changer",
-CurrentValue = false,
-Callback = function(Value)
-if Value then
-workspace.CurrentCamera.FieldOfView = 120
-else
-workspace.CurrentCamera.FieldOfView = 70
+--- Check if character exists
+function Utilities:GetCharacter()
+    local player = game.Players.LocalPlayer
+    if player and player.Character and player.Character:FindFirstChild("Humanoid") then
+        return player.Character
+    end
+    return nil
 end
-end,
+
+--- Safe notification wrapper
+function Utilities:Notify(title, content, duration)
+    duration = duration or Config.NotificationDuration
+    pcall(function()
+        Rayfield:Notify({
+            Title = title,
+            Content = content,
+            Duration = duration
+        })
+    end)
+end
+
+--- Validate character before action
+function Utilities:SafeCharacterAction(callback)
+    local char = self:GetCharacter()
+    if not char then
+        self:Notify("Error", "Character not found!", 3)
+        return false
+    end
+    pcall(callback)
+    return true
+end
+
+-- ============================================
+-- Fly System
+-- ============================================
+local FlySystem = {}
+FlySystem.Flying = false
+FlySystem.Speed = 50
+
+function FlySystem:Start()
+    if self.Flying then
+        self:Stop()
+        return
+    end
+    
+    Utilities:SafeCharacterAction(function()
+        local char = game.Players.LocalPlayer.Character
+        local humanoidRootPart = char:FindFirstChild("HumanoidRootPart")
+        
+        if not humanoidRootPart then return end
+        
+        self.Flying = true
+        local BodyVelocity = Instance.new("BodyVelocity")
+        BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        BodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        BodyVelocity.Parent = humanoidRootPart
+        
+        local UserInputService = game:GetService("UserInputService")
+        local RunService = game:GetService("RunService")
+        
+        local flyConnection
+        flyConnection = RunService.RenderStepped:Connect(function()
+            if not self.Flying then
+                BodyVelocity:Destroy()
+                flyConnection:Disconnect()
+                return
+            end
+            
+            local moveDirection = Vector3.new(0, 0, 0)
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + (humanoidRootPart.CFrame.LookVector) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - (humanoidRootPart.CFrame.LookVector) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - (humanoidRootPart.CFrame.RightVector) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + (humanoidRootPart.CFrame.RightVector) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDirection = moveDirection + Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDirection = moveDirection - Vector3.new(0, 1, 0) end
+            
+            BodyVelocity.Velocity = moveDirection.Unit * self.Speed + Vector3.new(0, 0, 0)
+        end)
+        
+        Utilities:Notify("Flight", "Fly mode activated! Use WASD + Space/Ctrl to move", 2)
+    end)
+end
+
+function FlySystem:Stop()
+    self.Flying = false
+    Utilities:Notify("Flight", "Fly mode deactivated", 2)
+end
+
+-- ============================================
+-- Teleport System
+-- ============================================
+local TeleportLocations = {
+    ["Spawn"] = Vector3.new(0, 3, 0),
+    ["Secret Room"] = Vector3.new(100, 50, 100),
+    ["Boss Area"] = Vector3.new(-100, 50, -100),
+}
+
+function Utilities:Teleport(location)
+    self:SafeCharacterAction(function()
+        local targetPos = TeleportLocations[location] or TeleportLocations["Spawn"]
+        local char = game.Players.LocalPlayer.Character
+        local rootPart = char:FindFirstChild("HumanoidRootPart")
+        
+        if rootPart then
+            rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
+            self:Notify("Teleport", "Teleported to " .. location, 2)
+        end
+    end)
+end
+
+-- ============================================
+-- Window Creation
+-- ============================================
+local Window = Rayfield:CreateWindow({
+    Name = "⚡ Zeno Hub v2.0 ⚡",
+    LoadingTitle = "Loading Assets...",
+    LoadingSubtitle = "by wavvyybrobro21",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "ZenoHub",
+        FileName = "MainConfig"
+    },
+    KeySystem = false,
 })
 
--- Load configurations
-Rayfield:LoadConfiguration()    
+-- ============================================
+-- Tab 1: Player Functions
+-- ============================================
+local PlayerTab = Window:CreateTab("👤 Player", "user")
+
+local PlayerSection = PlayerTab:CreateSection("Movement & Speed")
+
+local WalkSpeedSlider = PlayerTab:CreateSlider({
+    Name = "Walk Speed",
+    Range = {Config.DefaultWalkSpeed, Config.MaxWalkSpeed},
+    Increment = 5,
+    Suffix = "Studs/s",
+    CurrentValue = Config.DefaultWalkSpeed,
+    Flag = "WalkSpeed",
+    Callback = function(Value)
+        Utilities:SafeCharacterAction(function()
+            local char = Utilities:GetCharacter()
+            if char then
+                char.Humanoid.WalkSpeed = Value
+            end
+        end)
+    end,
+})
+
+local FlyToggle = PlayerTab:CreateToggle({
+    Name = "🚀 Fly Mode",
+    CurrentValue = false,
+    Flag = "Fly",
+    Callback = function(Value)
+        if Value then
+            FlySystem:Start()
+        else
+            FlySystem:Stop()
+        end
+    end,
+})
+
+local FlySpeedSlider = PlayerTab:CreateSlider({
+    Name = "Fly Speed",
+    Range = {10, 200},
+    Increment = 5,
+    Suffix = "Speed",
+    CurrentValue = 50,
+    Flag = "FlySpeed",
+    Callback = function(Value)
+        FlySystem.Speed = Value
+    end,
+})
+
+local JumpPowerSlider = PlayerTab:CreateSlider({
+    Name = "Jump Power",
+    Range = {50, 500},
+    Increment = 10,
+    Suffix = "Power",
+    CurrentValue = 50,
+    Flag = "JumpPower",
+    Callback = function(Value)
+        Utilities:SafeCharacterAction(function()
+            local char = Utilities:GetCharacter()
+            if char then
+                char.Humanoid.JumpPower = Value
+            end
+        end)
+    end,
+})
+
+-- ============================================
+-- Tab 2: Game Tools
+-- ============================================
+local GameTab = Window:CreateTab("🎮 Tools", "gamepad")
+
+local ExploitSection = GameTab:CreateSection("Teleportation")
+
+local TeleportDropdown = GameTab:CreateDropdown({
+    Name = "📍 Teleport Locations",
+    Options = {"Spawn", "Secret Room", "Boss Area"},
+    CurrentOption = {"Spawn"},
+    MultipleOptions = false,
+    Flag = "Teleport",
+    Callback = function(Options)
+        local location = Options[1] or "Spawn"
+        Utilities:Teleport(location)
+    end,
+})
+
+local CustomTPSection = GameTab:CreateSection("Custom Teleport")
+
+local XInput = GameTab:CreateInput({
+    Name = "X Coordinate",
+    PlaceholderText = "0",
+    RemoveTextAfterFocusLoss = false,
+    Flag = "TPX",
+    Callback = function(Text)
+    end,
+})
+
+local YInput = GameTab:CreateInput({
+    Name = "Y Coordinate",
+    PlaceholderText = "3",
+    RemoveTextAfterFocusLoss = false,
+    Flag = "TPY",
+    Callback = function(Text)
+    end,
+})
+
+local ZInput = GameTab:CreateInput({
+    Name = "Z Coordinate",
+    PlaceholderText = "0",
+    RemoveTextAfterFocusLoss = false,
+    Flag = "TPZ",
+    Callback = function(Text)
+    end,
+})
+
+local CustomTPButton = GameTab:CreateButton({
+    Name = "🧭 Teleport to Coordinates",
+    Callback = function()
+        local x = tonumber(Rayfield.Flags.TPX) or 0
+        local y = tonumber(Rayfield.Flags.TPY) or 3
+        local z = tonumber(Rayfield.Flags.TPZ) or 0
+        
+        Utilities:SafeCharacterAction(function()
+            local char = game.Players.LocalPlayer.Character
+            local rootPart = char:FindFirstChild("HumanoidRootPart")
+            if rootPart then
+                rootPart.CFrame = CFrame.new(Vector3.new(x, y, z))
+                Utilities:Notify("Teleport", "Teleported to X:" .. x .. " Y:" .. y .. " Z:" .. z, 2)
+            end
+        end)
+    end,
+})
+
+-- ============================================
+-- Tab 3: Visual
+-- ============================================
+local VisualTab = Window:CreateTab("👁️ Visual", "eye")
+
+local VisualSection = VisualTab:CreateSection("Camera & Appearance")
+
+local FOVToggle = VisualTab:CreateToggle({
+    Name = "FOV Changer",
+    CurrentValue = false,
+    Flag = "FOVToggle",
+    Callback = function(Value)
+        if Value then
+            workspace.CurrentCamera.FieldOfView = Config.MaxFOV
+            Utilities:Notify("Camera", "FOV changed to 120°", 2)
+        else
+            workspace.CurrentCamera.FieldOfView = Config.DefaultFOV
+            Utilities:Notify("Camera", "FOV reset to 70°", 2)
+        end
+    end,
+})
+
+local FOVSlider = VisualTab:CreateSlider({
+    Name = "Field of View",
+    Range = {30, 150},
+    Increment = 1,
+    Suffix = "°",
+    CurrentValue = Config.DefaultFOV,
+    Flag = "FOV",
+    Callback = function(Value)
+        workspace.CurrentCamera.FieldOfView = Value
+    end,
+})
+
+-- ============================================
+-- Tab 4: About
+-- ============================================
+local AboutTab = Window:CreateTab("ℹ️ About", "info")
+
+local AboutSection = AboutTab:CreateSection("Information")
+
+AboutTab:CreateParagraph({
+    Title = "Zeno Hub v2.0",
+    Content = "A comprehensive Lua exploitation framework with improved structure and error handling."
+})
+
+AboutTab:CreateParagraph({
+    Title = "Features",
+    Content = "✓ Fly Mode with controls\n✓ Speed Adjustment\n✓ Teleportation (Preset + Custom)\n✓ FOV Changer\n✓ Auto Configuration Saving"
+})
+
+AboutTab:CreateButton({
+    Name = "💾 Save Configuration",
+    Callback = function()
+        Rayfield:SaveConfiguration()
+        Utilities:Notify("Config", "Configuration saved successfully!", 3)
+    end,
+})
+
+-- ============================================
+-- Initialization
+-- ============================================
+Rayfield:LoadConfiguration()
+Utilities:Notify("Welcome", "Zeno Hub v2.0 loaded! Enjoy! 🚀", 3)
