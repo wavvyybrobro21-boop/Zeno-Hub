@@ -1,0 +1,82 @@
+-- Rayfield UI Library for modern look
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Window Creation
+local Window = Rayfield:CreateWindow({
+Name = "⚡ Supreme Core Hub v1.0 ⚡",
+LoadingTitle = "Loading Assets...",
+LoadingSubtitle = "by YourName",
+ConfigurationSaving = {
+Enabled = true,
+FolderName = "SupremeHub",
+FileName = "MainConfig"
+},
+KeySystem = false, -- Set to true for key system
+})
+
+-- Tab 1: Player Functions
+local PlayerTab = Window:CreateTab("Player", "user")
+local Section1 = PlayerTab:CreateSection("Movement & Speed")
+
+local SpeedSlider = PlayerTab:CreateSlider({
+Name = "WalkSpeed",
+Range = {16, 300},
+Increment = 1,
+Suffix = "Studs",
+CurrentValue = 16,
+Flag = "WalkSpeed",
+Callback = function(Value)
+game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+end,
+})
+
+local ToggleFly = PlayerTab:CreateToggle({
+Name = "Fly Mode",
+CurrentValue = false,
+Flag = "Fly",
+Callback = function(Value)
+print("Fly Mode: " .. tostring(Value))
+-- Add Fly Logic Here
+end,
+})
+
+-- Tab 2: Game Tools
+local GameTab = Window:CreateTab("Game Tools", "gamepad")
+local Section2 = GameTab:CreateSection("Exploits")
+
+local Button1 = GameTab:CreateButton({
+Name = "Kill All Players",
+Callback = function()
+-- Add Kill All Logic
+Rayfield:Notify({Title = "Exploit", Content = "Kill All Triggered", Duration = 3})
+end,
+})
+
+local Dropdown = GameTab:CreateDropdown({
+Name = "Teleport Locations",
+Options = {"Spawn", "Secret Room", "Boss Area"},
+CurrentOption = "Spawn",
+Flag = "Teleport",
+Callback = function(Option)
+print("Teleporting to: " .. Option)
+-- Add Teleport Logic
+end,
+})
+
+-- Tab 3: Misc/Fun
+local MiscTab = Window:CreateTab("Misc", "settings")
+
+local ToggleFOV = MiscTab:CreateToggle({
+Name = "FOV Changer",
+CurrentValue = false,
+Callback = function(Value)
+if Value then
+workspace.CurrentCamera.FieldOfView = 120
+else
+workspace.CurrentCamera.FieldOfView = 70
+end
+end,
+})
+
+-- Load configurations
+Rayfield:LoadConfiguration()    
